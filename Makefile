@@ -1,31 +1,35 @@
-.PHONY: import-casper load-test-casper load-test-casper-save recall-casper recall-casper-save collect-casper-metrics
+.PHONY: import load-test load-test-save recall recall-save collect-metrics
+
+# Default base URL for Casper HTTP API (can be overridden: make ... BASE_URL=http://host:port)
+BASE_URL ?= http://localhost:8080
+
+# Default path to benchmark data (can be overridden: make ... IMPORT_PATH=path/to/data.bin)
+IMPORT_PATH ?= casper-bench-data/data/data.bin
+
+# Default path to Apache Bench request body
+AB_REQ_PATH ?= casper-bench-data/json/casper/req.json
 
 # Import vectors from binary file using Python script
-import-casper:
-	@if [ -z "$(IMPORT_PATH)" ]; then \
-		echo "Error: IMPORT_PATH environment variable is required"; \
-		echo "Usage: make import-casper-python IMPORT_PATH=path/to/vectors.bin"; \
-		exit 1; \
-	fi
-	@echo "Importing vectors (Python) from: $(IMPORT_PATH)"
-	@python3 scripts/import/import.py $(IMPORT_PATH) --base-url http://localhost:8080 --collection demo
+import:
+	@echo "Importing vectors to Casper Vector Database"
+	@python3 scripts/import/import.py $(IMPORT_PATH) --base-url $(BASE_URL) --collection demo
 
 # Load test with Apache Bench
-load-test-casper:
-	@ab -p json/casper/req.json -c 32 -n 300000 -k -T 'application/json' "http://localhost:8080/collection/demo/search?limit=10"
+load-test:
+	@ab -p $(AB_REQ_PATH) -c 32 -n 300000 -k -T 'application/json' "$(BASE_URL)/collection/demo/search?limit=10"
 
-load-test-casper-save:
-	@./scripts/ab.sh --base-url http://localhost:8080 --collection demo --body json/casper/req.json --out-dir metrics
+load-test-save:
+	@./scripts/ab.sh --base-url $(BASE_URL) --collection demo --body $(AB_REQ_PATH) --out-dir metrics
 
-recall-casper:
+recall:
 	@echo "Running recall evaluation ..."
-	@python3 scripts/recall/recall.py --base data.bin --collection demo --k 10 --num-queries 1000 --metric ip
+	@python3 scripts/recall/recall.py --base $(IMPORT_PATH) --collection demo --k 10 --num-queries 1000 --metric ip --base-url $(BASE_URL)
 
-recall-casper-save:
-	@./scripts/recall.sh --backend casper --base-url http://localhost:8080 --base data.bin --collection demo --num-queries 1000 --metric ip --out-dir metrics
+recall-save:
+	@./scripts/recall.sh --backend casper --base-url $(BASE_URL) --base $(IMPORT_PATH) --collection demo --num-queries 1000 --metric ip --out-dir metrics
 
-# Combo: run both load-test-casper-save and recall-casper-save
-collect-casper-metrics:
-	@echo "Running load-test-casper-save and recall-casper-save ..."
-	@$(MAKE) load-test-casper-save
-	@$(MAKE) recall-casper-save
+# Combo: run both load-test-save and recall-save
+collect-metrics:
+	@echo "Running load-test-save and recall-save ..."
+	@$(MAKE) load-test-save
+	@$(MAKE) recall-save
