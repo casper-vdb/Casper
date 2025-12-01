@@ -90,6 +90,8 @@ Recall
 
 ---
 
+- [Benchmarks Guide](docs/benchmarks.md) — For details on how to reproduce these benchmarks yourself (rps and recall).
+
 ## HNSW
 
 Casper features a highly efficient **HNSW (Hierarchical Navigable Small World)** index, providing fast and accurate similarity search. 
@@ -181,9 +183,9 @@ curl http://localhost:8080/health
 
 ## API Documentation
 
-Casper exposes an HTTP API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
+Casper exposes an HTTP & GRPC API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
 
-- [HTTP API Docs](docs/docs.md)
+- [API Docs](docs/api.md)
 
 ---
 
