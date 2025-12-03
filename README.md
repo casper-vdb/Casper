@@ -181,6 +181,13 @@ docker run -d --name casper -p 8080:8080 -p 50051:50051 -e API_TOKEN="$API_TOKEN
 curl http://localhost:8080/health
 ```
 
+### Clients
+
+Casper provides client libraries for several programming languages:
+
+- Official:
+    - [Rust client](https://github.com/casper-vdb/rust-client)
+
 ## API Documentation
 
 Casper exposes an HTTP & GRPC API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
