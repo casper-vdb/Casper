@@ -81,7 +81,7 @@ run_ab() {
   local out_file="${OUT_DIR}/ab@${limit}"
 
   echo "Running Apache Bench load test for HNSW and saving results to ${out_file}"
-  ab -p "${BODY_FILE}" -c 32 -n "${requests}" -k -T 'application/json' "${BASE_URL}/collection/${COLLECTION}/search?limit=${limit}" > "${out_file}"
+  ab -p "${BODY_FILE}" -c 32 -n "${requests}" -k -T 'application/json' "${BASE_URL}/collection/${COLLECTION}/search?limit=${limit}&output=bin" > "${out_file}"
 }
 
 # Corresponds to existing Makefile configuration
