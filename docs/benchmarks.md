@@ -111,15 +111,14 @@ Before running the load tests and recall evaluation, download and prepare the pu
    curl --location --request POST 'http://localhost:8080/collection/demo/index' \
      --header 'Content-Type: application/json' \
      --data-raw '{
-       "index": "hnsw",
-       "config": {
+       "hnsw": {
            "metric": "inner-product",
            "quantization": "i8",
            "m": 16,
            "m0": 32,
-           "ef_construction": 200,
-           "normalization": true
-       }
+           "ef_construction": 200
+       },
+       "normalization": true
      }'
    ```
 

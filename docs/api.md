@@ -129,7 +129,7 @@ curl --location --request POST 'http://localhost:8080/collection/demo/unmute'
 #### Create index (HNSW)
 - Method: POST
 - Path: /collection/{name}/index
-- Body (application/json): { "index": "hnsw", "config": { "metric": string, "quantization": string, "m": number, "m0": number, "ef_construction": number, "normalization": bool (optional) } }
+- Body (application/json): { "hnsw": { "metric": string, "quantization": string, "m": number, "m0": number, "ef_construction": number, "pq_name": string (optional) }, "normalization": bool (optional) }
 
 Description: Creates an HNSW index with provided parameters. Validates metric/quantization and HNSW parameters.
 
@@ -138,6 +138,7 @@ Description: Creates an HNSW index with provided parameters. Validates metric/qu
 - **m**: Target number of connections per node on upper layers. Higher values increase recall and memory usage; lower values reduce both.
 - **m0**: Number of connections per node on the bottom layer (level 0). Typically set higher than m; increases recall and memory usage.
 - **ef_construction**: Candidate list size during index build. Larger values improve recall but increase build time and memory.
+- **pq_name**: Optional name of a preconfigured PQ to use with PQ-based quantization ("pq8"/"pq16").
 - **normalization**: If true, vectors are L2-normalized on insert and update only; query vectors are not normalized by the index. Enable for cosine similarity or inner-product with pre-normalized (unit-length) vectors supplied by the client.
 
 Full precision (F32) + Euclidean:
@@ -145,15 +146,14 @@ Full precision (F32) + Euclidean:
 curl --location --request POST 'http://localhost:8080/collection/demo/index' \
   --header 'Content-Type: application/json' \
   --data-raw '{
-    "index": "hnsw",
-    "config": {
+    "hnsw": {
         "metric": "euclidean",
         "quantization": "f32",
         "m": 16,
         "m0": 32,
-        "ef_construction": 200,
-        "normalization": true
-    }
+        "ef_construction": 200
+    },
+    "normalization": true
   }'
 ```
 
@@ -162,15 +162,14 @@ Scalar quantization (I8) + Inner-Product:
 curl --location --request POST 'http://localhost:8080/collection/demo/index' \
   --header 'Content-Type: application/json' \
   --data-raw '{
-    "index": "hnsw",
-    "config": {
+    "hnsw": {
         "metric": "inner-product",
         "quantization": "i8",
         "m": 16,
         "m0": 32,
-        "ef_construction": 200,
-        "normalization": true
-    }
+        "ef_construction": 200
+    },
+    "normalization": true
   }'
 ```
 
@@ -179,16 +178,15 @@ Example with PQ quantization (`pq8`) and a preconfigured PQ named `pq_ip`:
 curl --location --request POST 'http://localhost:8080/collection/demo/index' \
   --header 'Content-Type: application/json' \
   --data-raw '{
-    "index": "hnsw",
-    "config": {
+    "hnsw": {
         "metric": "inner-product",
         "quantization": "pq8",
         "m": 16,
         "m0": 32,
         "ef_construction": 200,
-        "pq_name": "pq_ip",
-        "normalization": false
-    }
+        "pq_name": "pq_ip"
+    },
+    "normalization": false
   }'
 ```
 
@@ -213,18 +211,18 @@ curl --location --request DELETE 'http://localhost:8080/collection/demo/index'
 - Query: **limit** (usize), **output** (optional, string, e.g. "json" or "bin", default: "bin")
 - Body (application/json): { "vector": number[] }
 
-Description: Searches nearest neighbors for the provided query vector. If output=json is set, returns JSON array of [id, score]. Otherwise (or if output is omitted) returns application/octet-stream with binary-encoded results (u32 count, then id u32 and dist f32 pairs).
+Description: Searches nearest neighbors for the provided query vector. If output=bin is set, returns application/octet-stream with binary-encoded results (u32 count, then id u32 and dist f32 pairs). Otherwise (or if output is omitted) returns JSON array of [id, score].
 
-JSON request example (returns JSON response):
+JSON request example (returns JSON response, default behavior):
 ```bash
-curl --location --request POST 'http://localhost:8080/collection/demo/search?limit=10&output=json' \
+curl --location --request POST 'http://localhost:8080/collection/demo/search?limit=10' \
   --header 'Content-Type: application/json' \
   --data-raw '{ "vector": [0.1, 0.2, 0.3, 0.4] }'
 ```
 
 Binary request example (returns binary response):
 ```bash
-curl --location --request POST 'http://localhost:8080/collection/demo/search?limit=10' \
+curl --location --request POST 'http://localhost:8080/collection/demo/search?limit=10&output=bin' \
   --header 'Content-Type: application/json' \
   --output results.bin \
   --data-raw '{ "vector": [0.1, 0.2, 0.3, 0.4] }'

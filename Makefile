@@ -16,7 +16,7 @@ import:
 
 # Load test with Apache Bench
 load-test:
-	@ab -p $(AB_REQ_PATH) -c 32 -n 300000 -k -T 'application/json' "$(BASE_URL)/collection/demo/search?limit=10"
+	@ab -p $(AB_REQ_PATH) -c 32 -n 300000 -k -T 'application/json' "$(BASE_URL)/collection/demo/search?limit=10&output=bin"
 
 load-test-save:
 	@./scripts/ab.sh --base-url $(BASE_URL) --collection demo --body $(AB_REQ_PATH) --out-dir metrics

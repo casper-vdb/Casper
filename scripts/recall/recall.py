@@ -72,9 +72,10 @@ def faiss_gt(index, queries: np.ndarray, k: int) -> np.ndarray:
 def fetch_casper_topk(session: requests.Session, base_url: str, collection: str, vector: np.ndarray, k: int, timeout: float = 30.0) -> List[int]:
     """
     POST a query to Casper:
-      POST {base_url}/collection/{collection}/search?limit=k&output=json
+      POST {base_url}/collection/{collection}/search?limit=k
       body: { "vector": [..] }
-    Expects response as a list of pairs [id, score] or a list of dicts with 'id'.
+    Expects JSON response:
+      { "result": [ { "id": id, "score": ... }, ... ] }
     Returns a list of ids with length <= k.
     """
     url = f"{base_url.rstrip('/')}/collection/{collection}/search"
@@ -114,17 +115,20 @@ def fetch_qdrant_topk(session: requests.Session, base_url: str, collection: str,
 
 def parse_casper_ids(data, k: int) -> List[int]:
     """
-    Handle several response formats:
-      - [[id, score], ...]
-      - [{"id": id, "score": ...}, ...]
-      - {"results": [...]} or {"neighbors": [...]} — pick the first found
+    Parse Casper HTTP API response in the new canonical format:
+      {
+        "result": [
+          { "id": id, "score": ... },
+          ...
+        ]
+      }
     """
     payload = data
-    if isinstance(payload, dict):
-        for key in ("results", "neighbors", "data", "items"):
-            if key in payload and isinstance(payload[key], list):
-                payload = payload[key]
-                break
+    if isinstance(payload, dict) and "result" in payload and isinstance(payload["result"], list):
+        payload = payload["result"]
+    else:
+        # Unexpected format – return empty list to avoid panics.
+        return []
 
     ids: List[int] = []
     if isinstance(payload, list):
