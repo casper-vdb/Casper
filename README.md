@@ -186,7 +186,8 @@ curl http://localhost:8080/health
 Casper provides client libraries for several programming languages:
 
 - Official:
-    - [Rust client](https://github.com/casper-vdb/rust-client)
+    - [Go](https://github.com/casper-vdb/go-client)
+    - [Rust](https://github.com/casper-vdb/rust-client)
 
 ## API Documentation
 
