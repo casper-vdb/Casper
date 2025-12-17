@@ -35,9 +35,13 @@ In practice, Casper delivers up to an order‑of‑magnitude higher RPS compared
 - Dimension: 128
 - Metric:    Inner Product
 
+**HNSW**
+- m: 16
+- ef construct: 200
+
 Qdrant configured with quantile 0.99 (for int8), always ram enabled.
 
-#### F32
+#### Full Precision (F32)
 
 Requests per second, RPS
 
@@ -54,7 +58,7 @@ Recall
 | Casper  |    0.970 |    0.951 |    0.940 |      0.926 |       0.965 |
 | Qdrant  |    0.996 |    0.985 |    0.978 |      0.982 |       0.991 |
 
-#### I8
+#### Scalar Quantization (I8)
 
 Requests per second, RPS
 
@@ -71,7 +75,9 @@ Recall
 | Casper  |    0.842 |    0.910 |    0.927 |      0.932 |       0.964 |
 | Qdrant  |    0.892 |    0.945 |    0.960 |      0.974 |       0.982 |
 
-#### PQ
+#### Product Quantization (PQ)
+
+16 subspaces and 2⁸ = 256 codewords per subspace
 
 Requests per second, RPS
 
@@ -87,8 +93,6 @@ Recall
 |:-------:|---------:|---------:|---------:|-----------:|------------:|
 | Casper  |    0.630 |    0.697 |    0.742 |      0.800 |       0.766 |
 | Qdrant  |    0.639 |    0.764 |    0.834 |      0.899 |       0.899 |
-
----
 
 - [Benchmarks Guide](docs/benchmarks.md) — For details on how to reproduce these benchmarks yourself (rps and recall).
 
@@ -107,7 +111,7 @@ Casper supports multiple distance metrics:
 
 ### Quantizations
 
-Quantizations: f32 (full precision), i8 scalar quantization (compressed). Reduces memory footprint and improves search performance.
+Quantizations: f32 (full precision), i8 scalar quantization, and product quantization — reducing memory footprint and improving search performance.
 
 - **F32**
 - **I8**
@@ -185,9 +189,8 @@ curl http://localhost:8080/health
 
 Casper provides client libraries for several programming languages:
 
-- Official:
-    - [Go](https://github.com/casper-vdb/go-client)
-    - [Rust](https://github.com/casper-vdb/rust-client)
+- [Go](https://github.com/casper-vdb/go-client)
+- [Rust](https://github.com/casper-vdb/rust-client)
 
 ## API Documentation
 
