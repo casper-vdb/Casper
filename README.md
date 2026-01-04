@@ -10,7 +10,7 @@
 
 **Casper** is a high-performance Vector Search Database, perfectly suited for high-load search systems and AI applications (RAG). It provides a robust and scalable solution to store, search, and manage vectors efficiently.
 
-Casper is built using Rust 🦀 for performance and reliability.
+Casper is built using Rust 🦀 for performance and reliability. Clients [Python](https://github.com/casper-vdb/python-client) • [Go](https://github.com/casper-vdb/go-client) • [Rust](https://github.com/casper-vdb/rust-client)
 
 ---
 
@@ -189,6 +189,7 @@ curl http://localhost:8080/health
 
 Casper provides client libraries for several programming languages:
 
+- [Python](https://github.com/casper-vdb/python-client)
 - [Go](https://github.com/casper-vdb/go-client)
 - [Rust](https://github.com/casper-vdb/rust-client)
 
