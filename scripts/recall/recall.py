@@ -82,6 +82,24 @@ def fetch_casper_topk(session: requests.Session, base_url: str, collection: str,
     params = {"limit": str(k), "output": "json"}
     payload = {"vector": vector.astype(float).tolist()}
 
+#     # Debug: print request that is being sent to Casper search endpoint
+#     try:
+#         print(
+#             "[casper-search-request]",
+#             json.dumps(
+#                 {
+#                     "url": url,
+#                     "params": params,
+#                     "body": payload,
+#                 },
+#                 ensure_ascii=False,
+#             ),
+#             flush=True,
+#         )
+#     except Exception:
+#         # Не ломаем основной сценарий, если по какой-то причине печать не удалась
+#         pass
+
     resp = session.post(url, params=params, json=payload, headers={"Content-Type": "application/json"}, timeout=timeout)
     resp.raise_for_status()
     data = resp.json()
@@ -266,3 +284,5 @@ def main():
 
 if __name__ == "__main__":
     main()
+
+

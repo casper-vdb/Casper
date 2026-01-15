@@ -1,23 +1,34 @@
 #!/usr/bin/env python3
 """
-Simple importer for Casper binary vector files (data.bin):
-  - reads a Casper-format binary file (dimension, count, then id + vector)
-  - sends each document as a JSON payload to
-      POST http://localhost:8080/collection/alex/insert?id=<id>
-    with body: { "vector": [ ... ] }
+Simple importer for binary vector files (data.bin).
+
+File format:
+  - 4 bytes: big-endian u32 dimension
+  - 4 bytes: big-endian u32 count
+  - then for each document:
+      - 4 bytes: big-endian u32 id
+      - D * 4 bytes: big-endian f32 values
+
+Backends:
+  - casper:
+      POST {base_url}/collection/{collection}/update
+      body: { "insert": [ {"id": <id>, "vector": [...]}, ... ], "delete": [] }
+  - qdrant:
+      PUT {base_url}/collections/{collection}/points?wait=true
+      body: { "points": [ {"id": <id>, "vector": [...]}, ... ] }
 """
 
 import sys
 import struct
 import argparse
-from typing import Generator, Tuple, List
+from typing import Generator, Tuple, List, Dict, Any
 
 import requests
 
 
 def read_casper_bin(path: str) -> Tuple[int, int, Generator[Tuple[int, List[float]], None, None]]:
     """
-    Read a Casper-format binary file.
+    Read a binary file.
 
     Format:
       - 4 bytes: big-endian u32 dimension
@@ -56,34 +67,56 @@ def read_casper_bin(path: str) -> Tuple[int, int, Generator[Tuple[int, List[floa
     return dim, count, _iter_docs(f, dim, count)
 
 
-def send_document(
+def send_documents_casper(
     session: requests.Session,
     base_url: str,
     collection: str,
-    doc_id: int,
-    vector: List[float],
+    batch: List[Dict[str, Any]],
+    *,
+    timeout: float = 120.0,
 ) -> None:
     """
-    Send a single document to Casper:
-      POST {base_url}/collection/{collection}/insert?id=<doc_id>
-      body: { "vector": [ ... ] }
-
-    Mirrors the behavior of `send_document` in import.rs:
-      - prints ✓ on success
-      - prints ✗ and status code on HTTP error status
-      - raises on network errors
+    Send a batch of documents to Casper:
+      POST {base_url}/collection/{collection}/update
+      body: { "insert": [ {"id": <id>, "vector": [...]}, ...], "delete": [] }
     """
-    url = f"{base_url.rstrip('/')}/collection/{collection}/insert"
-    params = {"id": str(doc_id)}
-    payload = {"vector": vector}
+    url = f"{base_url.rstrip('/')}/collection/{collection}/update"
+    payload = {"insert": batch, "delete": []}
+    resp = session.post(
+        url,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
 
-    resp = session.post(url, params=params, json=payload, headers={"Content-Type": "application/json"})
 
-    if 200 <= resp.status_code < 300:
-        print(f"✓ Document {doc_id} imported successfully")
-    else:
-        # Keep behavior similar to Rust version: log but do not raise on HTTP status errors
-        print(f"✗ Failed to import document {doc_id}: HTTP {resp.status_code}", file=sys.stderr)
+def send_documents_qdrant(
+    session: requests.Session,
+    base_url: str,
+    collection: str,
+    points: List[Dict[str, Any]],
+    *,
+    wait: bool = True,
+    timeout: float = 120.0,
+) -> None:
+    """
+    Upsert a batch of points into Qdrant.
+      PUT {base_url}/collections/{collection}/points?wait=true
+      body: { "points": [ {"id": ..., "vector": [...]}, ... ] }
+    """
+    url = f"{base_url.rstrip('/')}/collections/{collection}/points"
+    params = {"wait": "true" if wait else "false"}
+    payload = {"points": points}
+
+    resp = session.put(
+        url,
+        params=params,
+        json=payload,
+        headers={"Content-Type": "application/json"},
+        timeout=timeout,
+    )
+    resp.raise_for_status()
 
 
 def main() -> int:
@@ -104,15 +137,52 @@ def main() -> int:
         required=True,
         help="Collection name (e.g., alex)",
     )
+    parser.add_argument(
+        "--backend",
+        choices=["casper", "qdrant"],
+        default="casper",
+        help="Backend to import into: casper | qdrant (default: casper)",
+    )
+    parser.add_argument(
+        "--batch-size",
+        type=int,
+        default=256,
+        help="Batch size for Casper batch update / Qdrant upserts (default: 256).",
+    )
+    parser.add_argument(
+        "--wait",
+        action="store_true",
+        default=True,
+        help="(Qdrant) Wait for upsert to be processed before returning (default: true).",
+    )
+    parser.add_argument(
+        "--no-wait",
+        action="store_false",
+        dest="wait",
+        help="(Qdrant) Do not wait for upsert to be processed.",
+    )
+    parser.add_argument(
+        "--quiet",
+        action="store_true",
+        help="Do not print per-document success logs (recommended for large imports).",
+    )
 
     args = parser.parse_args()
     file_path: str = args.path
     base_url: str = args.base_url
     collection: str = args.collection
+    backend: str = args.backend
+    batch_size: int = int(args.batch_size)
+    wait: bool = bool(args.wait)
+    quiet: bool = bool(args.quiet)
 
     print(f"Importing vectors from file: {file_path}")
     print(f"Server URL: {base_url}")
     print(f"Collection: {collection}")
+    print(f"Backend: {backend}")
+    if backend == "qdrant":
+        print(f"Batch size: {batch_size}")
+        print(f"Wait: {wait}")
     print()
 
     try:
@@ -129,10 +199,45 @@ def main() -> int:
     session = requests.Session()
     processed = 0
 
+    def log_batch_progress(processed_now: int, total: int) -> None:
+        # Keep progress output consistent across backends.
+        if quiet:
+            return
+        print(f"✓ Imported batch, processed={processed_now}/{total}", flush=True)
+
     try:
-        for doc_id, vector in docs_iter:
-            send_document(session, base_url, collection, doc_id, vector)
-            processed += 1
+        if backend == "casper":
+            if batch_size <= 0:
+                raise ValueError("--batch-size must be > 0")
+
+            batch: List[Dict[str, Any]] = []
+            for doc_id, vector in docs_iter:
+                batch.append({"id": int(doc_id), "vector": vector})
+                processed += 1
+                if len(batch) >= batch_size:
+                    send_documents_casper(session, base_url, collection, batch)
+                    log_batch_progress(processed, count)
+                    batch = []
+
+            if batch:
+                send_documents_casper(session, base_url, collection, batch)
+                log_batch_progress(processed, count)
+        else:
+            if batch_size <= 0:
+                raise ValueError("--batch-size must be > 0")
+
+            batch: List[Dict[str, Any]] = []
+            for doc_id, vector in docs_iter:
+                batch.append({"id": int(doc_id), "vector": vector})
+                processed += 1
+                if len(batch) >= batch_size:
+                    send_documents_qdrant(session, base_url, collection, batch, wait=wait)
+                    log_batch_progress(processed, count)
+                    batch = []
+
+            if batch:
+                send_documents_qdrant(session, base_url, collection, batch, wait=wait)
+                log_batch_progress(processed, count)
     except KeyboardInterrupt:
         print("\nImport interrupted by user.", file=sys.stderr)
         return 1
@@ -150,3 +255,5 @@ def main() -> int:
 
 if __name__ == "__main__":
     raise SystemExit(main())
+
+
