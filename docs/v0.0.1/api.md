@@ -129,16 +129,15 @@ curl --location --request POST 'http://localhost:8080/collection/demo/unmute'
 #### Create index (HNSW)
 - Method: POST
 - Path: /collection/{name}/index
-- Body (application/json): { "hnsw": { "metric": string, "quantization": string, "m": number, "m0": number, "ef_construction": number, "pq_name": string (optional) }, "normalization": bool (optional) }
+- Body (application/json): { "hnsw": { "metric": string, "quantization": string, "m": number, "m0": number, "ef_construction": number }, "normalization": bool (optional) }
 
 Description: Creates an HNSW index with provided parameters. Validates metric/quantization and HNSW parameters.
 
 - **metric**: Distance function used for similarity search. Supported values: "euclidean", "l2sq", "cosine", "inner-product".
-- **quantization**: Vector storage precision. "f32" for full precision; "i8" for scalar quantization to reduce memory footprint and improve throughput at the cost of approximation. Product quantization (PQ, e.g. "pq8") is configured separately via PQ service and **does not support** the "cosine" metric (only "euclidean", "l2sq", and "inner-product" are allowed).
+- **quantization**: Vector storage precision. "f32" for full precision; "i8" for scalar quantization to reduce memory footprint and improve throughput at the cost of approximation.
 - **m**: Target number of connections per node on upper layers. Higher values increase recall and memory usage; lower values reduce both.
 - **m0**: Number of connections per node on the bottom layer (level 0). Typically set higher than m; increases recall and memory usage.
 - **ef_construction**: Candidate list size during index build. Larger values improve recall but increase build time and memory.
-- **pq_name**: Optional name of a preconfigured PQ to use with PQ-based quantization ("pq8"/"pq16").
 - **normalization**: If true, vectors are L2-normalized on insert and update only; query vectors are not normalized by the index. Enable for cosine similarity or inner-product with pre-normalized (unit-length) vectors supplied by the client.
 
 Full precision (F32) + Euclidean:
@@ -170,23 +169,6 @@ curl --location --request POST 'http://localhost:8080/collection/demo/index' \
         "ef_construction": 200
     },
     "normalization": true
-  }'
-```
-
-Example with PQ quantization (`pq8`) and a preconfigured PQ named `pq_ip`:
-```bash
-curl --location --request POST 'http://localhost:8080/collection/demo/index' \
-  --header 'Content-Type: application/json' \
-  --data-raw '{
-    "hnsw": {
-        "metric": "inner-product",
-        "quantization": "pq8",
-        "m": 16,
-        "m0": 32,
-        "ef_construction": 200,
-        "pq_name": "pq_ip"
-    },
-    "normalization": false
   }'
 ```
 
