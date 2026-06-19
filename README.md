@@ -118,7 +118,7 @@ To quickly get started with Casper, follow these steps:
 **1. Download the latest release:**
 
 ```bash
-wget https://github.com/casper-vdb/casper/releases/download/v0.0.1/casper-x86_64-unknown-linux-gnu.tar.gz
+wget https://github.com/casper-vdb/casper/releases/download/v0.1.0/casper-x86_64-unknown-linux-gnu.tar.gz
 ```
 
 **2. Extract the downloaded archive:**
@@ -158,13 +158,13 @@ export API_TOKEN=<YOUR_API_TOKEN>
 **3. Run the container:**
 
 ```bash
-docker run -d --name casper -p 8080:8080 -p 50051:50051 -e API_TOKEN="$API_TOKEN" alexryzhickov/casper:latest
+docker run -d --name casper -p 7222:7222 -p 7223:7223 -e API_TOKEN="$API_TOKEN" alexryzhickov/casper:latest
 ```
 
 **4. Verify health:**
 
 ```bash
-curl http://localhost:8080/health
+curl http://localhost:7222/health
 ```
 
 ### Clients
@@ -179,7 +179,57 @@ Casper provides client libraries for several programming languages:
 
 Casper exposes an HTTP & GRPC API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
 
-- [API Docs](docs/v0.0.1/api.md)
+- [API Docs](docs/v0.1.0/api.md)
+- [Configuration Docs](docs/v0.1.0/config.md)
+
+## Cluster Mode
+
+Casper supports a master/replica cluster topology with WAL-based replication. The master accepts writes and broadcasts them to connected replicas over gRPC; replicas replay the stream and serve reads.
+
+By default the server runs in `standalone` mode. To enable clustering, pass `--cluster-role` and configure replication. The full set of flags is documented in [docs/config.md](docs/v0.1.0/config.md).
+
+### Run standalone
+
+A single-node deployment with no replication — the default mode:
+
+```bash
+./casper \
+  --host 127.0.0.1 \
+  --http-port 7222 \
+  --storage-dir ./storage
+```
+
+### Run a master
+
+The master accepts writes on `--http-port` and listens for replica connections on `--grpc-port`. With `--sync-replicas N` it waits for `N` replica fsync acks before returning `200` from the endpoints that perform `upsert` and `delete` operations:
+
+```bash
+./casper \
+  --host 127.0.0.1 \
+  --http-port 7222 \
+  --grpc-port 7223 \
+  --cluster-role master \
+  --storage-dir ./storage-master \
+  --sync-replicas 1 \
+  --write-ack-timeout-ms 5000
+```
+
+If fewer than `--sync-replicas` are connected, writes fast-fail with `504 InsufficientReplicas`. If the deadline elapses, they fail with `504 ReplicationTimeout`.
+
+### Run a replica
+
+A replica dials the master's `--grpc-port` via `--master-addr`:
+
+```bash
+./casper \
+  --host 127.0.0.1 \
+  --http-port 7322 \
+  --storage-dir ./storage-replica \
+  --cluster-role replica \
+  --master-addr 127.0.0.1:7223
+```
+
+The replica's on-disk layout mirrors the master's, so a replica can be restarted with `--cluster-role=master` for promotion.
 
 ---
 
