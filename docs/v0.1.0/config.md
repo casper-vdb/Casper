@@ -82,14 +82,6 @@ Connects to a master via `--master-addr` and replays the WAL + catalog stream:
 |---|---|---|
 | `--storage-dir` | `./storage` | Root directory for all on-disk state — collections, WAL, catalog. Created at startup if missing. |
 
-Layout under `--storage-dir`:
-
-```
-<storage-dir>/
-  collection/   # vector data + indices, one subdir per collection
-  cluster/      # cluster catalog (master and replica only)
-```
-
 ---
 
 ### Cluster

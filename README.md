@@ -27,13 +27,13 @@ In practice, Casper delivers up to an order‑of‑magnitude higher RPS compared
 #### Benchmarks RPS & Recall
 
 **Hardware:**
-- CPU: Intel Core i7-13700HX (16 cores / 24 threads)
-- Memory: 32 GB RAM
+- CPU: AMD EPYC 9474F (48 cores 96 threads L3 Cache 256 MB)
+- Memory: 256 GB RAM
 
 **Dataset:** deep-image-96-angular.hdf5
 - Vectors:   9,990,000
 - Dimension: 96
-- Metric:    Inner Product (vectors are L2-normalized, IP == cosine)
+- Metric:    Inner Product (vectors are L2-normalized)
 
 **HNSW**
 - m: 16
@@ -51,9 +51,9 @@ Requests per second, RPS
 
 | Engine  | Top@10   |  Top@100 |  Top@1k  |  Top@10k   |   Top@100k  |
 |:-------:|---------:|---------:|---------:|-----------:|------------:|
-| Casper  | 106.87 k |  30.91 k |  4.363 k |        486 |          53 |
-| Qdrant  |  17.02 k |  5.488 k |      730 |         85 |           9 |
-| Speedup |     6.3x |     5.6x |     6.0x |       5.7x |        6.1x |
+| Casper  | 248.86 k |  93.55 k |  12.02 k |     1.43 k |         163 |
+| Qdrant  |  13.25 k |  15.65 k |   2.48 k |       285  |          28 |
+| Speedup |    18.8x |     6.0x |     4.8x |       5.0x |        5.8x |
 
 Recall
 
@@ -68,9 +68,9 @@ Requests per second, RPS
 
 | Engine  | Top@10   |  Top@100 |  Top@1k  |  Top@10k   |   Top@100k  |
 |:-------:|---------:|---------:|---------:|-----------:|------------:|
-| Casper  | 126.63 k |  45.99 k |  6.756 k |        665 |          65 |
-| Qdrant  |  12.60 k |  5.698 k |      923 |        100 |          10 |
-| Speedup |    10.1x |     8.1x |     7.3x |       6.6x |        6.8x |
+| Casper  | 248.79 k | 145.53 k | 22.47 k  |     2.36 k |         221 |
+| Qdrant  |  26.90 k |  19.43 k |  3.29 k  |       345  |          28 |
+| Speedup |     9.2x |     7.5x |     6.8x |       6.8x |        7.9x |
 
 Recall
 
@@ -179,14 +179,14 @@ Casper provides client libraries for several programming languages:
 
 Casper exposes an HTTP & GRPC API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
 
-- [API Docs](docs/v0.1.0/api.md)
-- [Configuration Docs](docs/v0.1.0/config.md)
+- [API Docs](docs/api.md)
+- [Configuration Docs](docs/config.md)
 
 ## Cluster Mode
 
 Casper supports a master/replica cluster topology with WAL-based replication. The master accepts writes and broadcasts them to connected replicas over gRPC; replicas replay the stream and serve reads.
 
-By default the server runs in `standalone` mode. To enable clustering, pass `--cluster-role` and configure replication. The full set of flags is documented in [docs/config.md](docs/v0.1.0/config.md).
+By default the server runs in `standalone` mode. To enable clustering, pass `--cluster-role` and configure replication. The full set of flags is documented in [docs/config.md](docs/config.md).
 
 ### Run standalone
 
