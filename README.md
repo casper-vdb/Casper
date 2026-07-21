@@ -27,7 +27,7 @@ In practice, Casper delivers up to an order‑of‑magnitude higher RPS compared
 #### Benchmarks RPS & Recall
 
 **Hardware:**
-- CPU: AMD EPYC 9474F (48 cores 96 threads L3 Cache 256 MB)
+- CPU: 2 × AMD EPYC 9474F (2 × 48 cores 96 threads L3 Cache 256 MB)
 - Memory: 256 GB RAM
 
 **Dataset:** deep-image-96-angular.hdf5
