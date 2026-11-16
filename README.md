@@ -103,10 +103,10 @@ Quantizations: f32 (full precision), i8 scalar quantization — reducing memory 
 
 ## Free Access
 
-Casper is currently completely free. You can use the following free API token to run Casper:
+Casper is currently completely free. You can use the following free licence token to run Casper:
 
 ```bash
-export API_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE3OTMyOTAzNTMsImZyZWUiOnRydWV9.GxqiVw5kPzmPb25vo2CMOEwnBhjTH_GTAHeDg_nhlIQ
+export LICENSE_TOKEN=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJleHAiOjE4MjU1ODE2NzIsImZyZWUiOnRydWV9.1RW9Q3JyAtc_DiwtAnZA0gfRYWfHTIRusQ57XR3TV_U
 ```
 
 ## Quick Start
@@ -118,7 +118,7 @@ To quickly get started with Casper, follow these steps:
 **1. Download the latest release:**
 
 ```bash
-wget https://github.com/casper-vdb/casper/releases/download/v0.1.0/casper-x86_64-unknown-linux-gnu.tar.gz
+wget https://github.com/casper-vdb/casper/releases/download/v0.2.0/casper-x86_64-unknown-linux-gnu.tar.gz
 ```
 
 **2. Extract the downloaded archive:**
@@ -127,10 +127,10 @@ wget https://github.com/casper-vdb/casper/releases/download/v0.1.0/casper-x86_64
 tar -xzvf casper-x86_64-unknown-linux-gnu.tar.gz
 ```
 
-**3. Set API token:**
+**3. Set licence token:**
 
 ```bash
-export API_TOKEN=<YOUR_API_TOKEN>
+export LICENSE_TOKEN=<YOUR_LICENSE_TOKEN>
 ```
 
 **4. Run Casper:**
@@ -149,16 +149,39 @@ Now you're ready to use Casper and explore its features!
 docker pull alexryzhickov/casper:latest
 ```
 
-**2. Set API token:**
+**2. Set licence token:**
 
 ```bash
-export API_TOKEN=<YOUR_API_TOKEN>
+export LICENSE_TOKEN=<YOUR_LICENSE_TOKEN>
 ```
 
 **3. Run the container:**
 
 ```bash
-docker run -d --name casper -p 7222:7222 -p 7223:7223 -e API_TOKEN="$API_TOKEN" alexryzhickov/casper:latest
+docker run -d --name casper \
+  -p 7222:7222 -p 7223:7223 -p 7224:7224 \
+  -v casper-storage:/storage \
+  -e LICENSE_TOKEN="$LICENSE_TOKEN" \
+  alexryzhickov/casper:latest
+```
+
+`7222` is the REST API, `7223` carries fetched indexes and WALs and `7224` the
+Raft log — a standalone node uses only the first, a node started
+with `--cluster-role cluster` needs all three reachable from its peers. The
+volume holds `/storage`: collections, WAL and Raft state. Without it they live
+in the container's writable layer and `docker rm` takes them with it.
+
+To override configuration, mount a YAML file at `/config/production.yaml` —
+the image sets `RUN_MODE=production`, so that layer is read at startup, and it
+merges key by key onto the defaults, so it may contain only the keys you
+change:
+
+```bash
+docker run -d --name casper -p 7222:7222 \
+  -v ./my-config.yaml:/config/production.yaml \
+  -v casper-storage:/storage \
+  -e LICENSE_TOKEN="$LICENSE_TOKEN" \
+  alexryzhickov/casper:latest
 ```
 
 **4. Verify health:**
@@ -177,16 +200,16 @@ Casper provides client libraries for several programming languages:
 
 ## API Documentation
 
-Casper exposes an HTTP & GRPC API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
+Casper exposes an HTTP API for managing collections, indexing (HNSW), inserts/updates/deletes, and search. For full endpoint descriptions and curl examples, see the documentation:
 
-- [API Docs](docs/api.md)
-- [Configuration Docs](docs/config.md)
+- [API Docs](docs/v0.2.0/api.md)
+- [Configuration Docs](docs/v0.2.0/config.md)
 
 ## Cluster Mode
 
-Casper supports a master/replica cluster topology with WAL-based replication. The master accepts writes and broadcasts them to connected replicas over gRPC; replicas replay the stream and serve reads.
+Casper runs as a cluster of full replicas under one Raft group. Every write goes through the Raft log and is durable on a majority; any node may lead, and followers serve reads.
 
-By default the server runs in `standalone` mode. To enable clustering, pass `--cluster-role` and configure replication. The full set of flags is documented in [docs/config.md](docs/config.md).
+By default the server runs in `standalone` mode. To enable clustering, pass `--cluster-role` and configure replication. The full set of flags is documented in [docs/config.md](docs/v0.2.0/config.md).
 
 ### Run standalone
 
@@ -199,39 +222,28 @@ A single-node deployment with no replication — the default mode:
   --storage-dir ./storage
 ```
 
-### Run a master
+### Run a cluster
 
-The master accepts writes on `--http-port` and listens for replica connections on `--grpc-port`. With `--sync-replicas N` it waits for `N` replica fsync acks before returning `200` from the endpoints that perform `upsert` and `delete` operations:
-
-```bash
-./casper \
-  --host 127.0.0.1 \
-  --http-port 7222 \
-  --grpc-port 7223 \
-  --cluster-role master \
-  --storage-dir ./storage-master \
-  --sync-replicas 1 \
-  --write-ack-timeout-ms 5000
-```
-
-If fewer than `--sync-replicas` are connected, writes fast-fail with `504 InsufficientReplicas`. If the deadline elapses, they fail with `504 ReplicationTimeout`.
-
-### Run a replica
-
-A replica dials the master's `--grpc-port` via `--master-addr`:
+Every node is a full replica, and any node may lead. A write goes through the Raft log and is durable on a majority, so a cluster without one takes no writes. The first node starts alone:
 
 ```bash
 ./casper \
-  --host 127.0.0.1 \
-  --http-port 7322 \
-  --storage-dir ./storage-replica \
-  --cluster-role replica \
-  --master-addr 127.0.0.1:7223
+  --host 10.0.0.1 \
+  --cluster-role cluster \
+  --storage-dir ./storage
 ```
 
-The replica's on-disk layout mirrors the master's, so a replica can be restarted with `--cluster-role=master` for promotion.
+The others name it:
 
----
+```bash
+./casper \
+  --host 10.0.0.2 \
+  --cluster-role cluster \
+  --storage-dir ./storage \
+  --bootstrap 10.0.0.1:7224
+```
+
+A write that reaches a follower is refused with `405` and the leader's address.
 
 ## Features
 
